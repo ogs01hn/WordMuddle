@@ -1,6 +1,10 @@
 package com.gososoft.wordmuddle;
 
 import android.app.Activity;
+import android.content.Context;
+import android.content.res.Resources;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
@@ -8,12 +12,16 @@ import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
+import android.text.Html;
 import android.util.Log;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.ArrayAdapter;
 import android.widget.EditText;
+import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -46,8 +54,18 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "EGGA";
     String url;
 
-    private List<String> defList = new ArrayList<>();
+    private ArrayList<String> wDefList = new ArrayList<>();
+    private ArrayList<String> wordFinalList = new ArrayList<>();
+    private ArrayList<String> DefList = new ArrayList<>();
     private RecyclerView recyclerView;
+
+    ListView listview;
+
+    ArrayAdapter adapterDefs;
+
+    ListView listviewWords;
+
+    ArrayAdapter adapterWrds;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,8 +83,37 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        Resources res = getResources();
+        InputStream inpStrm = res.openRawResource(R.raw.nounlist);
+
+        BufferedReader reader = new BufferedReader(new InputStreamReader(inpStrm));
 
 
+        String line = null;
+/*        try {
+            line = reader.readLine();
+            Log.i(TAG, "onCreate: "+line);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }*/
+
+        int count =0;
+        try {
+            while ((line = reader.readLine()) != null) {
+
+                wDefList.add(line);
+                count++;
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        Log.i(TAG, "onCreate: size wDefList"+wDefList.size());
+
+        //((TextView)findViewById(R.id.editTextWord)).setText(defList.get(6));
+        listview = (ListView) findViewById(R.id.listViewDefs);
+
+        listviewWords= (ListView) findViewById(R.id.listViewWords);
 
     }
 
@@ -95,126 +142,195 @@ public class MainActivity extends AppCompatActivity {
     public void getWord(View v){
 
 
-        assert ((EditText)findViewById(R.id.editTextWord)) != null;
-        url = "http://www.dictionaryapi.com/api/v1/references/sd3/xml/"+ ((EditText)findViewById(R.id.editTextWord)).getText()  +"?key=" + getResources().getString(R.string.apiKey);
 
-        Log.i(TAG, "getWord: "+((EditText)findViewById(R.id.editTextWord)).getText()+" //"+url) ;
+
         GetWordTask gWordATask = new GetWordTask(this);
-        gWordATask.execute(url);
+
+        ConnectivityManager connMgr = (ConnectivityManager)
+                getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo networkInfo = connMgr.getActiveNetworkInfo();
+
+
+        if (networkInfo != null && networkInfo.isConnected()) {
+
+
+
+                new GetWordTask(this).execute(wDefList);
+
+        }else{
+            Toast.makeText(getApplicationContext(), "There is no connection to the Internet!", Toast.LENGTH_LONG).show();
+        }
+
+
+
+        Log.i(TAG, "getWord: DefList size: "+DefList.toString());
     }
 
-    private class GetWordTask extends AsyncTask<String, Void, String> {
+    private class GetWordTask extends AsyncTask<ArrayList<String>, Void, ArrayList<String>> {
         private Activity context;
+        private ArrayList<String> definitionsList = new ArrayList<>();
+
 
         public GetWordTask(Activity context) {
             this.context = context;
         }
 
         @Override
-        protected String doInBackground(String... urls) {
+        protected ArrayList<String> doInBackground(ArrayList<String>... wordList) {
+            String wordPalabra;
+            int w = 0;
+            while(DefList.size()<10) {
 
-            StringBuffer output = new StringBuffer("");
+                StringBuffer output = new StringBuffer("");
 
 
+                InputStream stream = null;
+                URL url;
 
-            InputStream stream = null;
-            URL url;
-            try {
-                url = new URL(urls[0]);
-                URLConnection connection = url.openConnection();
+                wordPalabra = wordList[0].get(w);
+                String urlPre = "http://www.dictionaryapi.com/api/v1/references/sd3/xml/" + wordPalabra + "?key=" + getResources().getString(R.string.apiKey);
 
-                HttpURLConnection httpConnection = (HttpURLConnection) connection;
-                httpConnection.setRequestMethod("GET");
-                httpConnection.connect();
+                Log.i(TAG, "getWord: " + wordPalabra + " //" + urlPre);
 
-                if (httpConnection.getResponseCode() == HttpURLConnection.HTTP_OK) {
-                    stream = httpConnection.getInputStream();
-                    BufferedReader buffer = new BufferedReader( new InputStreamReader(stream));
-                    String s = "";
-                    while ((s = buffer.readLine()) != null)
-                        output.append(s);
+
+                try {
+                    url = new URL(urlPre);
+                    URLConnection connection = url.openConnection();
+
+                    HttpURLConnection httpConnection = (HttpURLConnection) connection;
+                    httpConnection.setRequestMethod("GET");
+                    httpConnection.connect();
+
+                    if (httpConnection.getResponseCode() == HttpURLConnection.HTTP_OK) {
+                        stream = httpConnection.getInputStream();
+                        BufferedReader buffer = new BufferedReader(new InputStreamReader(stream));
+                        String s = "";
+                        while ((s = buffer.readLine()) != null)
+                            output.append(s);
+                    }
+
+                    httpConnection.disconnect();
+
+                } catch (MalformedURLException e) {
+                    Log.e("Error", "Unable to parse URL", e);
+                } catch (IOException e) {
+                    Log.e("Error", "IO Exception", e);
                 }
-            } catch (MalformedURLException e) {
-                Log.e("Error", "Unable to parse URL", e);
-            } catch (IOException e) {
-                Log.e("Error", "IO Exception", e);
-            }
 
-            Log.i("egga", "doInBackground: "+output.toString());
+                Log.i("egga", "doInBackground: " + output.toString());
 
-            DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder dBuilder = null;
-            try {
-                dBuilder = dbFactory.newDocumentBuilder();
-            } catch (ParserConfigurationException e) {
-                e.printStackTrace();
-            }
+                DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+                DocumentBuilder dBuilder = null;
+                try {
+                    dBuilder = dbFactory.newDocumentBuilder();
+                } catch (ParserConfigurationException e) {
+                    e.printStackTrace();
+                }
 
-            InputSource is = new InputSource(new StringReader(output.toString()));
-            Document doc = null;
-            try {
-                doc = dBuilder.parse(is);
-            } catch (SAXException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+                InputSource is = new InputSource(new StringReader(output.toString()));
+                Document doc = null;
+                try {
+                    doc = dBuilder.parse(is);
+                } catch (SAXException e) {
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
 
-            try {
-                doc.getDocumentElement().normalize();
+                try {
+                    doc.getDocumentElement().normalize();
 
-                NodeList nList = doc.getElementsByTagName("fl");
-                NodeList cList;
+                    NodeList nList = doc.getElementsByTagName("fl");
+                    NodeList cList;
 
-                String egga="";
+                    String wordDefinition = "";
 
 
-                for(int i =0; i<nList.getLength(); i++){
-                    Node fl = nList.item(i);
+                    for (int i = 0; i < nList.getLength(); i++) {
+                        Node fl = nList.item(i);
 
 
-                    if(fl.getTextContent().toString().equals("noun")) {
+                        if (fl.getTextContent().toString().contains("noun")) {
 
-                        Node sibling = fl;
+                            Log.i(TAG, "doInBackground: " + fl.getTextContent().toString());
+                            Node sibling = fl;
 
-                        Log.i(TAG, "doInBackground: "+ sibling.getNextSibling().getNodeName().toString());
+                            //Log.i(TAG, "doInBackground: "+ sibling.getNextSibling().getNodeName().toString());
 
-                        //egga = egga + sibling.getTextContent().toString();
+                            //egga = egga + sibling.getTextContent().toString();
 
-                        while ( sibling.getNextSibling() != null) {
-                            Log.i(TAG, "doInBackground: "+ sibling.getNextSibling().getNodeName().toString());
+                            while (sibling != null) {
+                                //Log.i(TAG, "doInBackground: "+ sibling.getNextSibling().getNodeName().toString());
+
+
+                                // egga = egga + sibling.getTextContent().toString();
+
+                                if (sibling.getNodeName().toString().equals("def")) {
+
+                                    NodeList sibChLst = sibling.getChildNodes();
+
+                                    for (int sc = 0; sc < sibChLst.getLength(); sc++) {
+
+                                        Node sibChild = sibChLst.item(sc);
+
+                                        if (sibChild.getNodeName().toString().equals("dt")) {
+
+                                            wordDefinition = wordDefinition + Html.fromHtml(sibChild.getTextContent().toString().substring(1));
+
+                                            if (!wordDefinition.equals("")) {
+
+                                                wordDefinition = wordDefinition.substring(0,1).toUpperCase() + wordDefinition.substring(1);
+
+                                                wordFinalList.add(wordPalabra);
+
+                                                DefList.add(wordDefinition);
+                                            }
+                                            Log.i(TAG, "doInBackground: sucks" + wordDefinition);
+
+                                            break;
+                                        }
+                                    }
+                                }
 
                                 sibling = sibling.getNextSibling();
-                           // egga = egga + sibling.getTextContent().toString();
-
-                            if(sibling.getNodeName().toString().equals("def")){
-                                egga = egga + sibling.getTextContent().toString();
                             }
+
+                            break;
                         }
-
-                        break;
                     }
+
+
+                } catch (Exception e) {
+
+                    e.printStackTrace();
                 }
-
-
-
-                return egga;
-
-            } catch (Exception e) {
-
-                e.printStackTrace();
+                w++;
             }
 
-            return "";
+            return definitionsList;
         }
 
 
+
         @Override
-        protected void onPostExecute(String xml) {
+        protected void onPostExecute(ArrayList<String> definitions) {
 
-            TextView txv = (TextView)findViewById(R.id.textViewDefinition);
+//            TextView txv = (TextView)findViewById(R.id.textViewDefinition);
+            ListView lstv = (ListView)findViewById(R.id.listViewDefs);
 
-            txv.setText(xml);
+//            txv.setText(definitions.get(definitions.size()-1));
+
+            adapterDefs = new ArrayAdapter<String>(getBaseContext(), android.R.layout.simple_list_item_1, DefList);
+            adapterDefs.notifyDataSetChanged();
+
+            listview.setAdapter(adapterDefs);
+
+            adapterWrds = new ArrayAdapter<String>(getBaseContext(), android.R.layout.simple_list_item_1, wordFinalList);
+            adapterWrds.notifyDataSetChanged();
+
+            listviewWords.setAdapter(adapterWrds);
+
+
 
 
         }

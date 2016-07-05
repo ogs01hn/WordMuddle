@@ -10,6 +10,8 @@ import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.DefaultItemAnimator;
+import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.text.Html;
@@ -43,21 +45,29 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
+import jp.wasabeef.recyclerview.animators.SlideInUpAnimator;
+
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "EGGA";
-    String url;
+
 
     private ArrayList<String> wDefList = new ArrayList<>();
     private ArrayList<String> wordFinalList = new ArrayList<>();
     private ArrayList<String> DefList = new ArrayList<>();
-    private RecyclerView recyclerView;
+    private ArrayList<String> scrambledWordList = new ArrayList<>();
+
+    private RecyclerView recyclerViewScrbWords;
+
+    private wordsAdapter scrbWordsAdapter;
 
     ListView listview;
 
@@ -65,7 +75,7 @@ public class MainActivity extends AppCompatActivity {
 
     ListView listviewWords;
 
-    ArrayAdapter adapterWrds;
+   // ArrayAdapter adapterWrds;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -82,6 +92,8 @@ public class MainActivity extends AppCompatActivity {
                         .setAction("Action", null).show();
             }
         });
+
+        recyclerViewScrbWords = (RecyclerView) findViewById(R.id.defRecyclerView);
 
         Resources res = getResources();
         InputStream inpStrm = res.openRawResource(R.raw.nounlist);
@@ -107,6 +119,8 @@ public class MainActivity extends AppCompatActivity {
         } catch (IOException e) {
             e.printStackTrace();
         }
+
+
 
         Log.i(TAG, "onCreate: size wDefList"+wDefList.size());
 
@@ -144,7 +158,7 @@ public class MainActivity extends AppCompatActivity {
 
 
 
-        GetWordTask gWordATask = new GetWordTask(this);
+
 
         ConnectivityManager connMgr = (ConnectivityManager)
                 getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -179,7 +193,10 @@ public class MainActivity extends AppCompatActivity {
         protected ArrayList<String> doInBackground(ArrayList<String>... wordList) {
             String wordPalabra;
             int w = 0;
-            while(DefList.size()<10) {
+
+            Collections.shuffle(wordList[0]);
+
+            while(DefList.size()<5) {
 
                 StringBuffer output = new StringBuffer("");
 
@@ -281,7 +298,15 @@ public class MainActivity extends AppCompatActivity {
 
                                                 wordDefinition = wordDefinition.substring(0,1).toUpperCase() + wordDefinition.substring(1);
 
+                                                Random r = new Random();
+
+
+
                                                 wordFinalList.add(wordPalabra);
+
+                                                wordPalabra = scramble(r,wordPalabra);
+
+                                                scrambledWordList.add(wordPalabra);
 
                                                 DefList.add(wordDefinition);
                                             }
@@ -310,6 +335,22 @@ public class MainActivity extends AppCompatActivity {
             return definitionsList;
         }
 
+        public String scramble(Random random, String inputString)
+        {
+            // Convert your string into a simple char array:
+            char a[] = inputString.toCharArray();
+
+            // Scramble the letters using the standard Fisher-Yates shuffle,
+            for( int i=0 ; i<a.length-1 ; i++ )
+            {
+                int j = random.nextInt(a.length-1);
+                // Swap letters
+                char temp = a[i]; a[i] = a[j];  a[j] = temp;
+            }
+
+            return new String( a );
+        }
+
 
 
         @Override
@@ -325,12 +366,22 @@ public class MainActivity extends AppCompatActivity {
 
             listview.setAdapter(adapterDefs);
 
-            adapterWrds = new ArrayAdapter<String>(getBaseContext(), android.R.layout.simple_list_item_1, wordFinalList);
+/*            adapterWrds = new ArrayAdapter<String>(getBaseContext(), android.R.layout.simple_list_item_1, wordFinalList);
             adapterWrds.notifyDataSetChanged();
 
-            listviewWords.setAdapter(adapterWrds);
+            listviewWords.setAdapter(adapterWrds);*/
+
+            scrbWordsAdapter = new wordsAdapter(getBaseContext(),wordFinalList,scrambledWordList);
+
+            RecyclerView.LayoutManager mLayoutManager = new LinearLayoutManager(getApplicationContext());
+            recyclerViewScrbWords.setLayoutManager(mLayoutManager);
+            //recyclerViewScrbWords.setItemAnimator(new DefaultItemAnimator());
+            recyclerViewScrbWords.setItemAnimator(new SlideInUpAnimator());
+            recyclerViewScrbWords.setAdapter(scrbWordsAdapter);
 
 
+
+            scrbWordsAdapter.notifyDataSetChanged();
 
 
         }

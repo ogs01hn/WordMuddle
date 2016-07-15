@@ -1,6 +1,7 @@
 package com.gososoft.wordmuddle;
 
 import android.app.Activity;
+import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.res.Resources;
 import android.net.ConnectivityManager;
@@ -180,13 +181,24 @@ public class MainActivity extends AppCompatActivity {
         Log.i(TAG, "getWord: DefList size: "+DefList.toString());
     }
 
-    private class GetWordTask extends AsyncTask<ArrayList<String>, Void, ArrayList<String>> {
+    private class GetWordTask extends AsyncTask<ArrayList<String>, Integer, ArrayList<String>> {
         private Activity context;
         private ArrayList<String> definitionsList = new ArrayList<>();
 
+        ProgressDialog progressDialog;
+
 
         public GetWordTask(Activity context) {
+
+
             this.context = context;
+        }
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+
+            progressDialog = ProgressDialog.show(MainActivity.this, "WordMuddle", "Loading definitions...");
         }
 
         @Override
@@ -195,6 +207,12 @@ public class MainActivity extends AppCompatActivity {
             int w = 0;
 
             Collections.shuffle(wordList[0]);
+
+            wordFinalList.clear();
+            scrambledWordList.clear();
+            DefList.clear();
+
+
 
             while(DefList.size()<5) {
 
@@ -330,6 +348,7 @@ public class MainActivity extends AppCompatActivity {
                     e.printStackTrace();
                 }
                 w++;
+                //publishProgress(w);
             }
 
             return definitionsList;
@@ -362,7 +381,7 @@ public class MainActivity extends AppCompatActivity {
 //            txv.setText(definitions.get(definitions.size()-1));
 
             adapterDefs = new ArrayAdapter<String>(getBaseContext(), android.R.layout.simple_list_item_1, DefList);
-            adapterDefs.notifyDataSetChanged();
+            //adapterDefs.notifyDataSetChanged();
 
             listview.setAdapter(adapterDefs);
 
@@ -371,22 +390,25 @@ public class MainActivity extends AppCompatActivity {
 
             listviewWords.setAdapter(adapterWrds);*/
 
-            scrbWordsAdapter = new wordsAdapter(getBaseContext(),wordFinalList,scrambledWordList);
+            scrbWordsAdapter = new wordsAdapter(MainActivity.this,wordFinalList,scrambledWordList);
 
             RecyclerView.LayoutManager mLayoutManager = new LinearLayoutManager(getApplicationContext());
             recyclerViewScrbWords.setLayoutManager(mLayoutManager);
             //recyclerViewScrbWords.setItemAnimator(new DefaultItemAnimator());
             recyclerViewScrbWords.setItemAnimator(new SlideInUpAnimator());
+
             recyclerViewScrbWords.setAdapter(scrbWordsAdapter);
+            //scrbWordsAdapter.notifyDataSetChanged();
 
 
-
-            scrbWordsAdapter.notifyDataSetChanged();
-
-
+            progressDialog.dismiss();
         }
 
+        @Override
+        protected void onProgressUpdate(Integer... values) {
+            super.onProgressUpdate(values);
 
-
+            //progressDialog.setMessage(String.valueOf(values[0]));
+        }
     }
 }
